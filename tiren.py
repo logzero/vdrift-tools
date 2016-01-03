@@ -1,5 +1,4 @@
-import tkFileDialog
-from Tkinter import *
+from tkinter import *
 from math import *
 from time import time
 
@@ -826,7 +825,7 @@ class App:
         self.update('')
 
     def loadref(self):
-        f = tkFileDialog.askopenfile(mode='rb', **self.file_opt)
+        f = filedialog.askopenfile(mode='rb', **self.file_opt)
         if not f: return
         for line in f:
             line = line.split('#')[0]
@@ -837,12 +836,12 @@ class App:
         self.updateCanvas()
 
     def load(self):
-        f = tkFileDialog.askopenfile(mode='rb', **self.file_opt)
+        f = filedialog.askopenfile(mode='rb', **self.file_opt)
         if f:
             self.readCoeff(f)
 
     def save(self):
-        f = tkFileDialog.asksaveasfile(mode='wb', **self.file_opt)
+        f = filedialog.asksaveasfile(mode='wb', **self.file_opt)
         if f:
             self.writeCoeff(f)
 
