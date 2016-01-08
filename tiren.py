@@ -135,7 +135,7 @@ coeff_min = {
 
 coeff_max = {
 # Base parameters
-'fz':6000,
+'fz':8500,
 'camber':8.0,
 'aos':16.0,
 'FZ0':5000,

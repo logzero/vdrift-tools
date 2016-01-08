@@ -65,7 +65,7 @@ coeff_min = {
 
 coeff_max = {
 # Base parameters
-'Fz':5.5,
+'Fz':8.5,
 'Camber':8.0,
 # Lateral force
 'a0':3,
