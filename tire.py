@@ -1,6 +1,7 @@
 from tkinter import filedialog
 from tkinter import *
 from math import *
+from time import time
 
 coeff_base = ['Fz','Camber']
 
@@ -169,6 +170,58 @@ coeff_default = {
 'c17':0.0,
 }
 
+coeff_info = {
+# Base parameters
+'Fz':'Current tire load [N]',
+'Camber':'Current camber [deg]',
+# Lateral force
+'a0':'Shape factor',
+'a1':'Peak variation with square load',
+'a2':'Peak variation with load',
+'a3':'Slope factor',
+'a4':'Slope variation with load',
+'a5':'Slope variation with camber',
+'a6':'Curvature variation with load',
+'a7':'Curvature factor',
+'a8':'Horizontal shift variation with camber',
+'a9':'Horizontal shift variation with load',
+'a10':'Horizontal shift',
+'a111':'Vertical shift variation with camber and square load',
+'a112':'Vertical shift variation with camber and load',
+'a12':'Vertical shift variation with load',
+'a13':'Vertical shift',
+# Longitudinal force
+'b0':'Shape factor',
+'b1':'Peak variation with square load',
+'b2':'Peak variation with load',
+'b3':'Slope variation with square load',
+'b4':'Slope variation with load',
+'b5':'Slope variation exp load factor',
+'b6':'Curvature variation with square load',
+'b7':'Curvature variation with load',
+'b8':'Curvature factor',
+'b9':'Horizontal shift variation with load',
+'b10':'Horizontal shift',
+# Aligning moment
+'c0':'Shape factor',
+'c1':'Peak variation with square load',
+'c2':'Peak variation with load',
+'c3':'Slope variation with square load',
+'c4':'Slope variation with load',
+'c5':'Slope variation exp load factor',
+'c6':'Slope variation camber factor',
+'c7':'Curvature variation with camber and square load',
+'c8':'Curvature variation with camber and load',
+'c9':'Curvature variation with camber',
+'c10':'Curvature variation camber factor',
+'c11':'Horizontal shift variation with camber',
+'c12':'Horizontal shift variation with load',
+'c13':'Horizontal shift',
+'c14':'Vertical shift variation with camber and cubic load',
+'c15':'Vertical shift variation with camber and load',
+'c16':'Vertical shift variation with load',
+'c17':'Vertical shift',
+}
 
 # Longitudinal force 
 def PacejkaFx(p, sigma, Fz):
@@ -294,6 +347,94 @@ def Pacejka(p, sigma, alpha, gamma, Fz):
     return Fx, Fy, Mz
 
 
+class ToolTip( Toplevel ):
+    """
+    Provides a ToolTip widget for Tkinter.
+    To apply a ToolTip to any Tkinter widget, simply pass the widget to the
+    ToolTip constructor
+    """ 
+    def __init__( self, wdgt, msg=None, msgFunc=None, delay=1, follow=True ):
+        """
+        Initialize the ToolTip
+        
+        Arguments:
+          wdgt: The widget this ToolTip is assigned to
+          msg:  A static string message assigned to the ToolTip
+          msgFunc: A function that retrieves a string to use as the ToolTip text
+          delay:   The delay in seconds before the ToolTip appears(may be float)
+          follow:  If True, the ToolTip follows motion, otherwise hides
+        """
+        self.wdgt = wdgt
+        self.parent = self.wdgt.master                                          # The parent of the ToolTip is the parent of the ToolTips widget
+        Toplevel.__init__( self, self.parent, bg='black', padx=1, pady=1 )      # Initalise the Toplevel
+        self.withdraw()                                                         # Hide initially
+        self.overrideredirect( True )                                           # The ToolTip Toplevel should have no frame or title bar
+        
+        self.msgVar = StringVar()                                               # The msgVar will contain the text displayed by the ToolTip        
+        if msg == None:                                                         
+            self.msgVar.set( 'No message provided' )
+        else:
+            self.msgVar.set( msg )
+        self.msgFunc = msgFunc
+        self.delay = delay
+        self.follow = follow
+        self.visible = 0
+        self.lastMotion = 0
+        Message( self, textvariable=self.msgVar, bg='#FFFFDD',
+                 aspect=1000 ).grid()                                           # The test of the ToolTip is displayed in a Message widget
+        self.wdgt.bind( '<Enter>', self.spawn, '+' )                            # Add bindings to the widget.  This will NOT override bindings that the widget already has
+        self.wdgt.bind( '<Leave>', self.hide, '+' )
+        self.wdgt.bind( '<Motion>', self.move, '+' )
+        
+    def spawn( self, event=None ):
+        """
+        Spawn the ToolTip.  This simply makes the ToolTip eligible for display.
+        Usually this is caused by entering the widget
+        
+        Arguments:
+          event: The event that called this funciton
+        """
+        self.visible = 1
+        self.after( int( self.delay * 1000 ), self.show )                       # The after function takes a time argument in miliseconds
+        
+    def show( self ):
+        """
+        Displays the ToolTip if the time delay has been long enough
+        """
+        if self.visible == 1 and time() - self.lastMotion > self.delay:
+            self.visible = 2
+        if self.visible == 2:
+            self.deiconify()
+            
+    def move( self, event ):
+        """
+        Processes motion within the widget.
+        
+        Arguments:
+          event: The event that called this function
+        """
+        self.lastMotion = time()
+        if self.follow == False:                                                # If the follow flag is not set, motion within the widget will make the ToolTip dissapear
+            self.withdraw()
+            self.visible = 1
+        self.geometry( '+%i+%i' % ( event.x_root+10, event.y_root+10 ) )        # Offset the ToolTip 10x10 pixes southwest of the pointer
+        try:
+            self.msgVar.set( self.msgFunc() )                                   # Try to call the message function.  Will not change the message if the message function is None or the message function fails
+        except:
+            pass
+        self.after( int( self.delay * 1000 ), self.show )
+            
+    def hide( self, event=None ):
+        """
+        Hides the ToolTip.  Usually this is caused by leaving the widget
+        
+        Arguments:
+          event: The event that called this function
+        """
+        self.visible = 0
+        self.withdraw()
+
+
 # a vertical scrollable frame
 class VerticalScrolledFrame(Frame):
     """A pure Tkinter scrollable frame that actually works!
@@ -392,8 +533,8 @@ class Slider(Frame):
         Frame.__init__(self, parent)
         self.call = call
         self.v = StringVar()
-        tl = Label(self, text=text)
-        tl.pack(side=LEFT, anchor=S)
+        self.tl = Label(self, text=text)
+        self.tl.pack(side=LEFT, anchor=S)
         self.s = Scale(self, from_=vmin, to=vmax, resolution=(vmax-vmin)/10000.0,
                            length=160, orient="horizontal", showvalue=0, command=self.command)
         self.s.pack(side=RIGHT, anchor=S)
@@ -413,9 +554,10 @@ class Slider(Frame):
         self.s.set(v)
         
 
-def addSlider(parent, txt, val, vmin, vmax, call):
+def addSlider(parent, txt, val, vmin, vmax, vinfo, call):
     s = Slider(parent, txt, val, vmin, vmax, call)
     s.pack(anchor=N, fill=X)
+    ToolTip(s.tl, msg=vinfo, delay=0.3)
     return s
 
 
@@ -459,7 +601,7 @@ class App:
         # base coeff sliders
         self.sliders = {}
         for n in coeff_base:
-            s = addSlider(sframe, n, self.coeff[n], coeff_min[n], coeff_max[n], self.update)
+            s = addSlider(sframe, n, self.coeff[n], coeff_min[n], coeff_max[n], coeff_info[n], self.update)
             self.sliders[n] = s
 
         # tire coeff slider tabs
@@ -469,15 +611,15 @@ class App:
         tabz = Tab(sframe, "Mz", 'brown')
 
         for n in coeff_fx:
-            s = addSlider(tabx, n, self.coeff[n], coeff_min[n], coeff_max[n], self.update)
+            s = addSlider(tabx, n, self.coeff[n], coeff_min[n], coeff_max[n], coeff_info[n], self.update)
             self.sliders[n] = s
 
         for n in coeff_fy:
-            s = addSlider(taby, n, self.coeff[n], coeff_min[n], coeff_max[n], self.update)
+            s = addSlider(taby, n, self.coeff[n], coeff_min[n], coeff_max[n], coeff_info[n], self.update)
             self.sliders[n] = s
 
         for n in coeff_mz:
-            s = addSlider(tabz, n, self.coeff[n], coeff_min[n], coeff_max[n], self.update)
+            s = addSlider(tabz, n, self.coeff[n], coeff_min[n], coeff_max[n], coeff_info[n], self.update)
             self.sliders[n] = s
 
         bar.add(tabx)
