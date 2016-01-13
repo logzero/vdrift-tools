@@ -610,8 +610,8 @@ class App:
     def __init__(self, root):
         self.need_redraw = False
         self.samples = 512
-        self.slip_angle_scale = 30.0 / self.samples
-        self.slip_scale = 1.0 / self.samples
+        self.slip_angle_scale = 60.0 / self.samples
+        self.slip_scale = 2.0 / self.samples
         self.coeff = coeff_default.copy()
         self.coeff0 = {}
         self.file_opt = {
