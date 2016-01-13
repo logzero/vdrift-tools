@@ -667,6 +667,24 @@ def Pacejka0(p, sigma, alpha, gamma, Fz):
     return Fx, Fy, Mz
 
 
+def CosAtan(x):
+    return 1.0 / sqrt(1.0 + x * x)
+
+
+# Longitudinal force combining factor, alpha in rad
+def PacejkaGx0(p, sigma, alpha):
+    B = p['gx1'] * CosAtan(p['gx2'] * sigma)
+    G = CosAtan(B * alpha)
+    return G
+
+
+# Lateral force combining factor, alpha in rad
+def PacejkaGy0(p, sigma, alpha):
+    B = p['gy1'] * CosAtan(p['gy2'] * alpha)
+    G = CosAtan(B * sigma)
+    return G
+
+
 class ToolTip( Toplevel ):
     """
     Provides a ToolTip widget for Tkinter.
@@ -897,6 +915,14 @@ class App:
             'parent':root,
             'title':'Select tire config file',
         }
+        self.file_opt_ref = {
+            'defaultextension':'.tire',
+            'filetypes':[('tire files', '.tire'), ('all files', '.*')],
+            'initialdir':'C:\\',
+            'initialfile':'touring.tire',
+            'parent':root,
+            'title':'Select tire config file',
+        }
 
         root.title('VDrift Tire Editor NO')
 
@@ -956,11 +982,11 @@ class App:
         self.update('')
 
     def loadref(self):
-        f = filedialog.askopenfile(mode='r', **self.file_opt)
+        f = filedialog.askopenfile(mode='r', **self.file_opt_ref)
         if not f: return
         for line in f:
             line = line.split('#')[0]
-            if line.startswith('a') or line.startswith('b') or line.startswith('c'):
+            if line.startswith('a') or line.startswith('b') or line.startswith('c') or line.startswith('g'):
                 name, value = line.split('=')
                 name, value = name.strip(), value.strip()
                 self.coeff0[name] = float(value)
@@ -1039,18 +1065,28 @@ class App:
     def sampleData0(self, coeff):
         camber = self.coeff['camber']
         fz = self.coeff['fz'] * 0.001
-        slip_angle_scale = self.slip_angle_scale / pi * 180
+        sa = self.coeff['aos'] / 180.0 * pi
+        fyp = PacejkaFy0(coeff, sa / pi * 180.0, camber, fz)
+        fyn = PacejkaFy0(coeff, -sa / pi * 180.0, camber, fz)
         samples = self.samples
         samples2 = self.samples / 2
-        afx, afy, amz = [], [], []
+        slip_angle_scale = self.slip_angle_scale / pi * 180
+        afx, afy, amz, acp, acn = [], [], [], [], []
         for i in range(0, samples, 1):
             s = self.slip_scale * (i - samples2)
             a = slip_angle_scale * (i - samples2)
             fx, fy, mz = Pacejka0(coeff, s, a, camber, fz)
+            gx = PacejkaGx0(coeff, s, sa)
+            gy = PacejkaGy0(coeff, s, sa)
+            mux = gx * fx / fz
+            muyp = gy * fyp / fz
+            muyn = gy * fyn / fz
             afx.append((i, samples2 * (1 - 0.0005 * fx / fz)))
             afy.append((i, samples2 * (1 - 0.0005 * fy / fz)))
-            amz.append((i, samples2 * (1 - 0.0010 * mz / fz)))
-        return afx, afy, amz
+            amz.append((i, samples2 * (1 - 0.0100 * mz / fz)))
+            acp.append((samples2 * (1 - 0.0005 * mux), samples2 * (1 - 0.0005 * muyp)))
+            acn.append((samples2 * (1 - 0.0005 * mux), samples2 * (1 - 0.0005 * muyn)))
+        return afx, afy, amz, acp, acn
 
     def updateCanvas(self):
         # clear canvas
@@ -1064,10 +1100,12 @@ class App:
         self.canvas.create_line(2, 3*s/4, s, 3*s/4, width=1, fill="grey")
         # draw ref curves
         if self.coeff0:
-            fx, fy, mz = self.sampleData0(self.coeff0)
+            fx, fy, mz, cp, cn = self.sampleData0(self.coeff0)
             self.canvas.create_line(fx, width=1, fill="light pink")
             self.canvas.create_line(fy, width=1, fill="light blue")
             self.canvas.create_line(mz, width=1, fill="sandy brown")
+            self.canvas.create_line(cp, width=1, fill="dark grey")
+            self.canvas.create_line(cn, width=1, fill="dark grey")
         # draw curves
         fx, fy, mz, tcp, tcn = self.sampleData(self.coeff)
         self.canvas.create_line(fx, width=1, fill="red")

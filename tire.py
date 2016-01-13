@@ -3,7 +3,7 @@ from tkinter import *
 from math import *
 from time import time
 
-coeff_base = ['Fz','Camber']
+coeff_base = ['Fz','Camber', 'aos']
 
 coeff_fy = ['a0','a1','a2','a3','a4','a5','a6','a7','a8','a9','a10','a111','a112','a12','a13']
 
@@ -11,10 +11,13 @@ coeff_fx = ['b0','b1','b2','b3','b4','b5','b6','b7','b8','b9','b10']
 
 coeff_mz = ['c0','c1','c2','c3','c4','c5','c6','c7','c8','c9','c10','c11','c12','c13','c14','c15','c16','c17']
 
+coeff_fxy = ['gy1','gy2','gx1','gx2'] 
+
 coeff_min = {
 # Base parameters
 'Fz':0.5,
 'Camber':-8.0,
+'aos':2.0,
 # Lateral force
 'a0':1,
 'a1':-100,
@@ -62,12 +65,18 @@ coeff_min = {
 'c15':-10,
 'c16':-10,
 'c17':-10,
+# Combined
+'gy1':0,
+'gy2':0,
+'gx1':0,
+'gx2':0,
 }
 
 coeff_max = {
 # Base parameters
 'Fz':8.5,
 'Camber':8.0,
+'aos':30.0,
 # Lateral force
 'a0':3,
 'a1':100,
@@ -115,12 +124,18 @@ coeff_max = {
 'c15':10,
 'c16':10,
 'c17':10,
+# Combined
+'gy1':50,
+'gy2':50,
+'gx1':50,
+'gx2':50,
 }
 
 coeff_default = {
 # Base parameters
 'Fz':3.0,
 'Camber':0.0,
+'aos':8.0,
 # Lateral force
 'a0':1.4,
 'a1':-0,
@@ -168,12 +183,18 @@ coeff_default = {
 'c15':-1.029,
 'c16':0.0,
 'c17':0.0,
+# Combined
+'gy1':11.14388,
+'gy2':10.14162,
+'gx1':24.8565,
+'gx2':22.43545,
 }
 
 coeff_info = {
 # Base parameters
 'Fz':'Current tire load [N]',
 'Camber':'Current camber [deg]',
+'aos':'Current angle of slip [deg]',
 # Lateral force
 'a0':'Shape factor',
 'a1':'Peak variation with square load',
@@ -221,7 +242,13 @@ coeff_info = {
 'c15':'Vertical shift variation with camber and load',
 'c16':'Vertical shift variation with load',
 'c17':'Vertical shift',
+# Combined
+'gy1':'Slope factor for combined Fy reduction',
+'gy2':'Slope variation of Fy reduction with slip angle',
+'gx1':'Slope factor of Fx reduction for combined slip',
+'gx2':'Slope variation of Fx reduction with slip',
 }
+
 
 # Longitudinal force 
 def PacejkaFx(p, sigma, Fz):
@@ -345,6 +372,24 @@ def Pacejka(p, sigma, alpha, gamma, Fz):
     Fy = PacejkaFy(p, alpha, gamma, Fz)
     Mz = PacejkaMz(p, sigma, alpha, gamma, Fz)
     return Fx, Fy, Mz
+
+
+def CosAtan(x):
+    return 1.0 / sqrt(1.0 + x * x)
+
+
+# Longitudinal force combining factor, alpha in rad
+def PacejkaGx(p, sigma, alpha):
+    B = p['gx1'] * CosAtan(p['gx2'] * sigma)
+    G = CosAtan(B * alpha)
+    return G
+
+
+# Lateral force combining factor, alpha in rad
+def PacejkaGy(p, sigma, alpha):
+    B = p['gy1'] * CosAtan(p['gy2'] * alpha)
+    G = CosAtan(B * sigma)
+    return G
 
 
 class ToolTip( Toplevel ):
@@ -609,6 +654,7 @@ class App:
         tabx = Tab(sframe, "Fx", 'red')
         taby = Tab(sframe, "Fy", 'blue')
         tabz = Tab(sframe, "Mz", 'brown')
+        tabc = Tab(sframe, 'Fxy', 'black')
 
         for n in coeff_fx:
             s = addSlider(tabx, n, self.coeff[n], coeff_min[n], coeff_max[n], coeff_info[n], self.update)
@@ -622,9 +668,14 @@ class App:
             s = addSlider(tabz, n, self.coeff[n], coeff_min[n], coeff_max[n], coeff_info[n], self.update)
             self.sliders[n] = s
 
+        for n in coeff_fxy:
+            s = addSlider(tabc, n, self.coeff[n], coeff_min[n], coeff_max[n], coeff_info[n], self.update)
+            self.sliders[n] = s
+ 
         bar.add(tabx)
         bar.add(taby)
         bar.add(tabz)
+        bar.add(tabc)
         bar.show()
 
         self.update('')
@@ -634,7 +685,7 @@ class App:
         if not f: return
         for line in f:
             line = line.split('#')[0]
-            if line.startswith('a') or line.startswith('b') or line.startswith('c'):
+            if line.startswith('a') or line.startswith('b') or line.startswith('c') or line.startswith('g'):
                 name, value = line.split('=')
                 name, value = name.strip(), value.strip()
                 self.coeff0[name] = float(value)
@@ -655,7 +706,7 @@ class App:
     def readCoeff(self, f):
         for line in f:
             line = line.split('#')[0]
-            if line.startswith('a') or line.startswith('b') or line.startswith('c'):
+            if line.startswith('a') or line.startswith('b') or line.startswith('c') or line.startswith('g'):
                 name, value = line.split('=')
                 if name in self.coeff:
                     name, value = name.strip(), value.strip()
@@ -675,21 +726,34 @@ class App:
         f.write('# Aligning moment\n')
         for n in coeff_mz:
             f.write('{0}={1:f}\n'.format(n, self.coeff[n]))
+        f.write('# Combined\n')
+        for n in coeff_fxy:
+            f.write('{0}={1:f}\n'.format(n, self.coeff[n]))
 
     def sampleData(self, coeff):
         camber = self.coeff['Camber']
         fz = self.coeff['Fz']
+        sa = self.coeff['aos'] / 180.0 * pi
+        fyp = PacejkaFy(coeff, sa / pi * 180.0, camber, fz)
+        fyn = PacejkaFy(coeff, -sa / pi * 180.0, camber, fz)
         samples = self.samples
         samples2 = self.samples / 2
-        afx, afy, amz = [], [], []
+        afx, afy, amz, acp, acn = [], [], [], [], []
         for i in range(0, samples, 1):
             s = self.slip_scale * (i - samples2)
             a = self.slip_angle_scale * (i - samples2)
             fx, fy, mz = Pacejka(coeff, s, a, camber, fz)
+            gx = PacejkaGx(coeff, s, sa)
+            gy = PacejkaGy(coeff, s, sa)
+            mux = gx * fx / fz
+            muyp = gy * fyp / fz
+            muyn = gy * fyn / fz
             afx.append((i, samples2 * (1 - 0.0005 * fx / fz)))
             afy.append((i, samples2 * (1 - 0.0005 * fy / fz)))
             amz.append((i, samples2 * (1 - 0.0100 * mz / fz)))
-        return afx, afy, amz
+            acp.append((samples2 * (1 - 0.0005 * mux), samples2 * (1 - 0.0005 * muyp)))
+            acn.append((samples2 * (1 - 0.0005 * mux), samples2 * (1 - 0.0005 * muyn)))
+        return afx, afy, amz, acp, acn
 
     def updateCanvas(self):
         # clear canvas
@@ -703,15 +767,19 @@ class App:
         self.canvas.create_line(2, 3*s/4, s, 3*s/4, width=1, fill="grey")
         # draw ref curves
         if self.coeff0:
-            fx, fy, mz = self.sampleData(self.coeff0)
+            fx, fy, mz, cp, cn = self.sampleData(self.coeff0)
             self.canvas.create_line(fx, width=1, fill="light pink")
             self.canvas.create_line(fy, width=1, fill="light blue")
-            self.canvas.create_line(mz, width=1, fill="sandy brown") 
+            self.canvas.create_line(mz, width=1, fill="sandy brown")
+            self.canvas.create_line(cp, width=1, fill="dark grey")
+            self.canvas.create_line(cn, width=1, fill="dark grey")
         # draw curves
-        fx, fy, mz = self.sampleData(self.coeff)
+        fx, fy, mz, cp, cn = self.sampleData(self.coeff)
         self.canvas.create_line(fx, width=1, fill="red")
         self.canvas.create_line(fy, width=1, fill="blue")
         self.canvas.create_line(mz, width=1, fill="brown")
+        self.canvas.create_line(cp, width=1, fill="black")
+        self.canvas.create_line(cn, width=1, fill="black")
         self.need_redraw = False
 
     def update(self, event):
