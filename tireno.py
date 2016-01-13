@@ -137,7 +137,7 @@ coeff_max = {
 # Base parameters
 'fz':8500,
 'camber':8.0,
-'aos':16.0,
+'aos':30.0,
 'FZ0':5000,
 # Lateral force
 'PCY1':2,
