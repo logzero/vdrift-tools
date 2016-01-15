@@ -878,10 +878,10 @@ class App:
         f.write('tread = 0.25\n')
         f.write('rolling-resistance = 1.3e-2, 6.5e-6\n')
         f.write('# Lateral force\n')
-        for n in coeff_fx:
+        for n in coeff_fy:
             f.write('{0}={1:f}\n'.format(n, self.coeff[n]))
         f.write('# Longitudinal force\n')
-        for n in coeff_fy:
+        for n in coeff_fx:
             f.write('{0}={1:f}\n'.format(n, self.coeff[n]))
         f.write('# Aligning moment\n')
         for n in coeff_mz:
