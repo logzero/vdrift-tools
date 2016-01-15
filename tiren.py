@@ -754,9 +754,10 @@ def addSlider(parent, txt, val, vmin, vmax, vinfo, call):
 class App:
     def __init__(self, root):
         self.need_redraw = False
-        self.samples = 512
-        self.slip_angle_scale = (60.0 / 180.0 * pi) / self.samples
-        self.slip_scale = 2.0 / self.samples
+        self.canvas_size = 512
+        self.samples = 256
+        self.slip_max = 1.0
+        self.slip_angle_max = 30.0
         self.coeff = coeff_default.copy()
         self.coeff0 = {}
         self.file_opt = {
@@ -778,7 +779,7 @@ class App:
         cframe = Frame(frame.interior, width=512)
         cframe.pack(side=TOP, anchor=NW)
 
-        self.canvas = Canvas(cframe, width=512, height=512)
+        self.canvas = Canvas(cframe, width=self.canvas_size, height=self.canvas_size)
         self.canvas.pack(fill=BOTH, expand=YES)
 
         # load/save buttons
@@ -874,41 +875,43 @@ class App:
             f.write('{0}={1:f}\n'.format(n, self.coeff[n]))
 
     def sampleData(self, coeff):
-        fz = self.coeff['fz']
+        slip_angle_max = self.slip_angle_max / 180.0 * pi
+        scale = 0.5 * self.canvas_size
+        scalea = scale / slip_angle_max
+        scales = scale / self.slip_max
+        scalef = 0.5 * scale
+        slip_angle_scale = 2.0 * slip_angle_max / self.samples
+        slip_scale = 2.0 * self.slip_max / self.samples
         camber = self.coeff['camber'] / 180.0 * pi
-        slip_angle = self.coeff['aos'] / 180.0 * pi
-        samples = self.samples
-        samples2 = self.samples / 2
-        # force, torque curves
-        afx, afy, amz = [], [], []
-        for i in range(0, samples, 1):
-            s = self.slip_scale * (i - samples2)
-            a = self.slip_angle_scale * (i - samples2)
-            fx, fy, mz = Pacejka(coeff, s, a, camber, fz)
-            afx.append((i, samples2 * (1 - 0.5 * fx / fz)))
-            afy.append((i, samples2 * (1 + 0.5 * fy / fz)))
-            amz.append((i, samples2 * (1 +  10 * mz / fz)))
-        # combined force curve
+        sa = self.coeff['aos'] / 180.0 * pi
+        fz = self.coeff['fz']
         dfz = PacejkadFz(coeff, fz)
-        fy, dy, bcy, shf = PacejkaFy(coeff, slip_angle, camber, fz, dfz)
-        atcp = []
-        for i in range(0, samples, 1):
-            s = self.slip_scale * (i - samples2)
-            fx = 2 * fz * (1 - afx[i][1] / samples2)
-            fcx, fcy = PacejkaCombine(coeff, s, slip_angle, camber, fx, fy, dy, dfz)
-            atcp.append((samples2 * (1 - 0.5 * fcx / fz), samples2 * (1 - 0.5 * fcy / fz)))
-        fy, dy, bcy, shf = PacejkaFy(coeff, -slip_angle, camber, fz, dfz)
-        atcn = []
-        for i in range(0, samples, 1):
-            s = self.slip_scale * (i - samples2)
-            fx = 2 * fz * (1 - afx[samples - 1 - i][1] / samples2)
-            fcx, fcy = PacejkaCombine(coeff, s, -slip_angle, camber, fx, fy, dy, dfz)
-            atcn.append((samples2 * (1 - 0.5 * fcx / fz), samples2 * (1 - 0.5 * fcy / fz)))
-        return afx, afy, amz, atcp, atcn
+        fyp, dyp, bcyp, shfp = PacejkaFy(coeff, sa, camber, fz, dfz)
+        fyn, dyn, bcyn, shfn = PacejkaFy(coeff, -sa, camber, fz, dfz)
+        afx, afy, amz, acp, acn = [], [], [], [], []
+        for i in range(-self.samples // 2, self.samples // 2, 1):
+            s = i * slip_scale
+            a = i * slip_angle_scale
+            fx = PacejkaFx(coeff, s, fz, dfz)
+            fy, dy, bcy, shf = PacejkaFy(coeff, a, camber, fz, dfz)
+            mz = PacejkaMz(coeff, a, camber, fz, dfz, fy, bcy, shf)
+            gx = PacejkaGx(coeff, s, sa)
+            gy = PacejkaGy(coeff, s, sa)
+            svyp = PacejkaSvy(coeff, s, sa, camber, dyp, dfz)
+            svyn = PacejkaSvy(coeff, s, sa, camber, dyn, dfz)
+            mux = gx * fx / fz
+            muyp = (gy * fyp + svyp) / fz
+            muyn = (gy * fyn + svyn) / fz
+            afx.append((scale + s * scales, (2 - fx / fz) * scalef))
+            afy.append((scale + a * scalea, (2 + fy / fz) * scalef))
+            amz.append((scale + a * scalea, (2 + 10 * mz / fz) * scalef))
+            acp.append(((2 - mux) * scalef, (2 - muyp) * scalef))
+            acn.append(((2 - mux) * scalef, (2 - muyn) * scalef))
+        return afx, afy, amz, acp, acn
 
     def updateCanvas(self):
         # clear canvas
-        s = self.samples
+        s = self.canvas_size
         self.canvas.delete(ALL)
         self.canvas.create_line(s/4, 2, s/4, s, width=1, fill="grey")
         self.canvas.create_line(s/2, 2, s/2, s, width=1, fill="black")
@@ -918,19 +921,19 @@ class App:
         self.canvas.create_line(2, 3*s/4, s, 3*s/4, width=1, fill="grey")
         # draw ref curves
         if self.coeff0:
-            fx, fy, mz, tcp, tcn = self.sampleData(self.coeff0)
+            fx, fy, mz, cp, cn = self.sampleData(self.coeff0)
             self.canvas.create_line(fx, width=1, fill="light pink")
             self.canvas.create_line(fy, width=1, fill="light blue")
             self.canvas.create_line(mz, width=1, fill="sandy brown")
-            self.canvas.create_line(tcp, width=1, fill="dark grey")
-            self.canvas.create_line(tcn, width=1, fill="dark grey")
+            self.canvas.create_line(cp, width=1, fill="dark grey")
+            self.canvas.create_line(cn, width=1, fill="dark grey")
         # draw curves
-        fx, fy, mz, tcp, tcn = self.sampleData(self.coeff)
+        fx, fy, mz, cp, cn = self.sampleData(self.coeff)
         self.canvas.create_line(fx, width=1, fill="red")
         self.canvas.create_line(fy, width=1, fill="blue")
         self.canvas.create_line(mz, width=1, fill="brown")
-        self.canvas.create_line(tcp, width=1, fill="black")
-        self.canvas.create_line(tcn, width=1, fill="black")
+        self.canvas.create_line(cp, width=1, fill="black")
+        self.canvas.create_line(cn, width=1, fill="black")
         self.need_redraw = False
 
     def update(self, event):
