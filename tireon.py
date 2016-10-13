@@ -23,7 +23,7 @@ coeff_min = {
 'a1':-100,
 'a2':1,
 'a3':1,
-'a4':-100,
+'a4':1,
 'a5':-10,
 'a6':-10,
 'a7':-10,
@@ -250,6 +250,46 @@ coeff_info = {
 }
 
 
+# |x| <= 1, error 2.5E-6
+def Atan1(x):
+    s = x * x
+    p = -1.2490720064867844e-02
+    p = +5.5063351366968050e-02 + p * s
+    p = -1.1921576270475498e-01 + p * s
+    p = +1.9498657165383548e-01 + p * s
+    p = -3.3294527685374087e-01 + p * s
+    p = 1 + p * s
+    p = p * x
+    return p
+
+# error 2.5E-6
+def Atan(x):
+    if x * x < 1:
+        return Atan1(x)
+    return copysign(pi * 0.5, x) - Atan1(1 / x)
+
+# |x| <= pi/2
+# max error: 1E-6
+def SinPi2(x):
+    s = x * x
+    p = -1.8447486103462252e-04
+    p = +8.3109378830028557e-03 + p * s
+    p = -1.6665578084732124e-01 + p * s
+    p = 1 + p * s
+    p = p * x
+    return p
+
+# |x| <= pi
+# max error: 1E-6
+def SinPi(x):
+    if abs(x) > pi * 0.5:
+        x = copysign(pi, x) - x
+    return SinPi2(x)
+
+def CosAtan(x):
+    return 1 / sqrt(1 + x * x)
+
+
 # Longitudinal force 
 def PacejkaFx(p, sigma, Fz):
     # shape factor
@@ -280,7 +320,7 @@ def PacejkaFx(p, sigma, Fz):
     S = 100 * sigma + Sh
 
     # longitudinal force
-    return D * sin(C * atan(B * S - E * (B * S - atan(B * S))))
+    return D * SinPi(C * Atan(B * S - E * (B * S - Atan(B * S))))
 
 
 # Lateral force
@@ -295,7 +335,7 @@ def PacejkaFy(p, alpha, gamma, Fz):
     # D = D * (1 - p['a14'] * gamma * gamma)
 
     # slope at origin
-    BCD = p['a3'] * sin(2.0 * atan(Fz / p['a4'])) * (1.0 - p['a5'] * fabs(gamma))
+    BCD = p['a3'] * SinPi(2 * Atan(Fz / p['a4'])) * (1 - p['a5'] * fabs(gamma))
 
     # stiffness factor
     B = BCD / (C * D)
@@ -322,7 +362,7 @@ def PacejkaFy(p, alpha, gamma, Fz):
     S = alpha + Sh
 
     # lateral force
-    return D * sin(C * atan(B * S - E * (B * S - atan(B * S)))) + Sv
+    return D * SinPi(C * Atan(B * S - E * (B * S - Atan(B * S)))) + Sv
 
 
 # Aligning moment
@@ -364,7 +404,7 @@ def PacejkaMz(p, alpha, gamma, Fz):
     S = alpha + Sh
 
     # self-aligning torque
-    return D * sin(C * atan(B * S - E * (B * S - atan(B * S)))) + Sv
+    return D * SinPi(C * Atan(B * S - E * (B * S - Atan(B * S)))) + Sv
 
 
 def Pacejka(p, sigma, alpha, gamma, Fz):
@@ -372,10 +412,6 @@ def Pacejka(p, sigma, alpha, gamma, Fz):
     Fy = PacejkaFy(p, alpha, gamma, Fz)
     Mz = PacejkaMz(p, alpha, gamma, Fz)
     return Fx, Fy, Mz
-
-
-def CosAtan(x):
-    return 1.0 / sqrt(1.0 + x * x)
 
 
 # Longitudinal force combining factor, alpha in rad
