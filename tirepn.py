@@ -1,7 +1,11 @@
-from tkinter import filedialog
-from tkinter import *
 from math import *
 from time import time
+try:
+	from tkinter import filedialog
+	from tkinter import *
+except:
+	import tkFileDialog as filedialog
+	from Tkinter import *
 
 coeff_base = [
 'fz',
@@ -183,7 +187,7 @@ def friction(coeff, vcx, slip, slip_angle, fz):
         qcb = kty * ycb
 
         # (qy - qcb * (1 + u))^2 + qx^2 = (mu * p)^2 * (1 + u)^2 * (1 + u / 4)^2
-        c4 = (mu * p / 4)**2
+        c4 = (mu * p / 4.0)**2
         c3, c2, c1, c0 = 6 * c4, 9 * c4 - qcb**2, 2 * qy * qcb, -(qx**2 + qy**2)
         d3, d2, d1, d0 = 4 * c4, 3 * c3, 2 * c2, c1
         def f(x): return x * (x * (x * (x * c4 + c3) + c2) + c1) + c0
@@ -207,14 +211,14 @@ def friction(coeff, vcx, slip, slip_angle, fz):
             uc = -1
         
         # fs = integrate w * q(x) from xc to a
-        ts = w * a * 1E5 * (1 - uc)**2 / 2
+        ts = w * a * 1E5 * (1 - uc)**2 / 2.0
         fsx = ts * qx
         fsy = ts * qy - w * a * 1E5 * qcb * (1 - uc)
         
         # fc = integrate w * mu * p(x) from -a to xc
         fcx, fcy = 0, 0
         if vr > 0:
-            fc = mu * p * w * a * 1E5 * (1 + uc)**2 * (7 / 9 - ((5 / 3 + uc) / 4)**2)
+            fc = mu * p * w * a * 1E5 * (1 + uc)**2 * (7 / 9.0 - ((5 / 3.0 + uc) / 4.0)**2)
             fcx = fc * nx
             fcy = fc * ny
 
@@ -223,13 +227,13 @@ def friction(coeff, vcx, slip, slip_angle, fz):
         fy = cfy * fy
         
     # msz = integrate w * (x * qy(x) - ycb(x) * qx(x)) from xc to a
-    msz = (w * a**2 * 1E5 / 6 * (qy * (1 - uc)**2 * (1 + 2 * uc) - 3 * qcb * (1 - uc**2))
-           - fsx * ycb * (1 - uc) * (5 + 3 * uc) / 6)
+    msz = (w * a**2 * 1E5 / 6.0 * (qy * (1 - uc)**2 * (1 + 2 * uc) - 3 * qcb * (1 - uc**2))
+           - fsx * ycb * (1 - uc) * (5 + 3 * uc) / 6.0)
     
     # mcz = integrate w * mu * p(x) * (x * ny - ycb(x) * nx) from -a to xc
     mcz = 0
     if vr > 0:
-        mcz = mu * p * w * a * 1E5 * (1 + uc)**2 / 60 * (
+        mcz = mu * p * w * a * 1E5 * (1 + uc)**2 / 60.0 * (
             -(uc * (uc * (uc * 3 + 9) - 26) + 13) * a * ny
             -(uc * (uc * (uc * 5 + 9) - 57) + 59) * (1 + uc) / 2 * ycb * nx)
     

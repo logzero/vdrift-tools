@@ -1,7 +1,11 @@
-from tkinter import filedialog
-from tkinter import *
 from math import *
 from time import time
+try:
+	from tkinter import filedialog
+	from tkinter import *
+except:
+	import tkFileDialog as filedialog
+	from Tkinter import *
 
 coeff_base = [
 'fz',
