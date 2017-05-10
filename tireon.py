@@ -969,7 +969,7 @@ class App:
         scalef = 0.5 * scale
         slip_angle_scale = 2.0 * slip_angle_max / self.samples
         slip_scale = 2.0 * self.slip_max / self.samples
-        camber = self.coeff['Camber'] / 180.0 * pi
+        camber = -self.coeff['Camber'] / 180.0 * pi
         sa = self.coeff['aos'] / 180.0 * pi
         fz = self.coeff['Fz'] * 1000
         dfz = PacejkadFz0(coeff, fz)
