@@ -40,8 +40,8 @@ coeff_min = {
 'radius':0.1,
 'width':0.1,
 'ar':0.25,
-'ktx':50,
-'kty':50,
+'ktx':400,
+'kty':400,
 'kcb':1000,
 'ccb':0.0,
 'cfy':0.5,
@@ -61,8 +61,8 @@ coeff_max = {
 'radius':1.0,
 'width':0.5,
 'ar':1.0,
-'ktx':300,
-'kty':300,
+'ktx':900,
+'kty':900,
 'kcb':5000,
 'ccb':1.0,
 'cfy':1.0,
@@ -82,8 +82,8 @@ coeff_default = {
 'radius':0.28,
 'width':0.2,
 'ar':0.45,
-'ktx':200,
-'kty':200,
+'ktx':600,
+'kty':600,
 'kcb':2500,
 'ccb':0.5,
 'cfy':1.0,
@@ -158,8 +158,9 @@ def friction(coeff, vcx, slip, slip_angle, fz):
     dz = fz / kz
     
     # patch half length
-    a = sqrt(r**2 - (r - dz)**2)
-    
+    #a = sqrt(r**2 - (r - dz)**2)
+    a = 0.30 * (dz + 2.25 * sqrt(r * dz))
+
     # contact pressure
     # p(u) = p * (1 - u^2) * (1 + u / 4) with u = x / a
     # fz = w * a * p * 4 / 3
@@ -235,7 +236,7 @@ def friction(coeff, vcx, slip, slip_angle, fz):
     if vr > 0:
         mcz = mu * p * w * a * 1E5 * (1 + uc)**2 / 60.0 * (
             -(uc * (uc * (uc * 3 + 9) - 26) + 13) * a * ny
-            -(uc * (uc * (uc * 5 + 9) - 57) + 59) * (1 + uc) / 2 * ycb * nx)
+            -(uc * (uc * (uc * 5 + 9) - 57) + 59) * (1 + uc) / 2.0 * ycb * nx)
     
     mz = msz + mcz
 
