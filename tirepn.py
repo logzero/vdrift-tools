@@ -1,11 +1,11 @@
 from math import *
 from time import time
 try:
-	from tkinter import filedialog
-	from tkinter import *
+    from tkinter import filedialog
+    from tkinter import *
 except:
-	import tkFileDialog as filedialog
-	from Tkinter import *
+    import tkFileDialog as filedialog
+    from Tkinter import *
 
 coeff_base = [
 'fz',
@@ -40,8 +40,8 @@ coeff_min = {
 'radius':0.1,
 'width':0.1,
 'ar':0.25,
-'ktx':400,
-'kty':400,
+'ktx':500,
+'kty':500,
 'kcb':1000,
 'ccb':0.0,
 'cfy':0.5,
@@ -61,8 +61,8 @@ coeff_max = {
 'radius':1.0,
 'width':0.5,
 'ar':1.0,
-'ktx':900,
-'kty':900,
+'ktx':1200,
+'kty':1200,
 'kcb':5000,
 'ccb':1.0,
 'cfy':1.0,
@@ -82,9 +82,9 @@ coeff_default = {
 'radius':0.28,
 'width':0.2,
 'ar':0.45,
-'ktx':600,
-'kty':600,
-'kcb':2500,
+'ktx':700,
+'kty':700,
+'kcb':1500,
 'ccb':0.5,
 'cfy':1.0,
 'cfz':-0.2,
@@ -146,6 +146,7 @@ def friction(coeff, vcx, slip, slip_angle, fz):
     sx = -vrx / rw
     sy = -vry / rw
     
+    nx, ny = 0.0, 0.0
     if vr > 0:
         nx = -vrx / vr
         ny = -vry / vr
@@ -160,11 +161,12 @@ def friction(coeff, vcx, slip, slip_angle, fz):
     # patch half length
     #a = sqrt(r**2 - (r - dz)**2)
     a = 0.30 * (dz + 2.25 * sqrt(r * dz))
+    wa = w * a * 1E5
 
     # contact pressure
     # p(u) = p * (1 - u^2) * (1 + u / 4) with u = x / a
     # fz = w * a * p * 4 / 3
-    p = fz * 3 / (4 * a * w) * 1E-5
+    p = 0.75 * fz / wa
 
     # friction coeff
     mu = (muc + (mus - muc) * exp(-sqrt(vr / vs)))
@@ -212,32 +214,29 @@ def friction(coeff, vcx, slip, slip_angle, fz):
             uc = -1
         
         # fs = integrate w * q(x) from xc to a
-        ts = w * a * 1E5 / 2.0 * (1 - uc)**2
-        tc = w * a * 1E5 / 3.0 * ((uc * uc - 3) * uc + 2)
+        ts = wa * 0.5 * (1 - uc)**2
+        tb = wa / 3.0 * ((uc * uc - 3) * uc + 2)
         fsx = ts * qx
-        fsy = ts * qy - tc * qcb
+        fsy = ts * qy - tb * qcb
         
         # fc = integrate w * mu * p(x) from -a to xc
-        fcx, fcy = 0, 0
-        if vr > 0:
-            fc = mu * p * w * a * 1E5 * (1 + uc)**2 * (7 / 9.0 - ((5 / 3.0 + uc) / 4.0)**2)
-            fcx = fc * nx
-            fcy = fc * ny
+        tc = mu * p * wa * (1 + uc)**2
+        fc = tc * (7 / 9.0 - (5 + 3 * uc)**2 / 12.0**2)
+        fcx = fc * nx
+        fcy = fc * ny
 
         fx = fsx + fcx
         fy = fsy + fcy
         fy = cfy * fy
         
     # msz = integrate w * (x * qy(x) - ycb(x) * qx(x)) from xc to a
-    msz = (w * a**2 * 1E5 / 6.0 * (qy * (1 - uc)**2 * (1 + 2 * uc) - 3 * qcb * (1 - uc**2))
-           - fsx * ycb * (1 - uc) * (5 + 3 * uc) / 6.0)
+    msz = (ts * a * (qy * (2 + 4 * uc) - 3 * qcb * (1 + uc)**2)
+           - fsx * ycb * (1 - uc) * (5 + 3 * uc)) / 6.0
     
     # mcz = integrate w * mu * p(x) * (x * ny - ycb(x) * nx) from -a to xc
-    mcz = 0
-    if vr > 0:
-        mcz = mu * p * w * a * 1E5 * (1 + uc)**2 / 60.0 * (
-            -(uc * (uc * (uc * 3 + 9) - 26) + 13) * a * ny
-            -(uc * (uc * (uc * 5 + 9) - 57) + 59) * (1 + uc) / 2.0 * ycb * nx)
+    mcz = -tc / 60.0 * (
+        (((3 * uc + 9) * uc - 26) * uc + 13) * a * ny +
+        (((5 * uc + 9) * uc - 57) * uc + 59) * (1 + uc) * 0.5 * ycb * nx)
     
     mz = msz + mcz
 
