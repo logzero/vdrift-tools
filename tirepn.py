@@ -212,9 +212,10 @@ def friction(coeff, vcx, slip, slip_angle, fz):
             uc = -1
         
         # fs = integrate w * q(x) from xc to a
-        ts = w * a * 1E5 * (1 - uc)**2 / 2.0
+        ts = w * a * 1E5 / 2.0 * (1 - uc)**2
+        tc = w * a * 1E5 / 3.0 * ((uc * uc - 3) * uc + 2)
         fsx = ts * qx
-        fsy = ts * qy - w * a * 1E5 * qcb * (1 - uc)
+        fsy = ts * qy - tc * qcb
         
         # fc = integrate w * mu * p(x) from -a to xc
         fcx, fcy = 0, 0
