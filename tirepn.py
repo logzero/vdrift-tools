@@ -127,41 +127,18 @@ coeff_info = {
 
 #log = open("log.txt", 'w')
 
-def friction(coeff, vcx, slip, slip_angle, fz):
-    camber = coeff['camber'] * pi / 180
+def ComputePatch(coeff, fz):
     pt = coeff['pressure']
     r = coeff['radius']
     w = coeff['width']
     ar = coeff['ar']
-    ktx = coeff['ktx']
-    kty = coeff['kty']
-    kcb = coeff['kcb'] * 1000
+    camber = coeff['camber'] * pi / 180
     ccb = coeff['ccb']
-    cfy = coeff['cfy']
     #cfz = coeff['cfz']
     #fz0 = coeff['fz0']
     dz0 = coeff['dz0']
     p0 = coeff['p0']
-    mus = coeff['mus']
-    muc = coeff['muc']
-    vs = coeff['vs']
 
-    # vcx > 0
-    vcy = vcx * tan(slip_angle)
-    rw = vcx * (1 - slip)
-
-    vrx = vcx - rw
-    vry = vcy
-    vr = sqrt(vrx * vrx + vry * vry)
-
-    sx = -vrx / rw
-    sy = -vry / rw
-    
-    nx, ny = 0.0, 0.0
-    if vr > 0:
-        nx = -vrx / vr
-        ny = -vry / vr
-    
     # vertical stiffness
     cf = 0.28 * sqrt((1.03 - 0.4 * ar) * w * r * 2)
     kz = 9.81 * (1E5 * pt * cf + 3450) # ~200000 N/m
@@ -185,9 +162,136 @@ def friction(coeff, vcx, slip, slip_angle, fz):
     p = 0.75 * fz / wa
 
     # friction coeff
-    mu = (muc + (mus - muc) * exp(-sqrt(vr / vs)))
-    #mu = mu * (1 + cfz * (fz - fz0) / fz0)
-    mu = mu * (p / p0)**(-1/3.0)
+    mu = (p / p0)**(-1/3.0)
+
+    # tread bending due to camber 
+    ym = ccb * dz * sin(camber)
+
+    return mu * p, w * a * 1E5, a, ym
+
+def ComputeFx(coeff, patch, slip):
+    vcx = coeff['vcx']
+    ktx = coeff['ktx']
+    mus = coeff['mus']
+    muc = coeff['muc']
+    vs = coeff['vs']
+
+    vrx = vcx * slip
+    vr = abs(vrx)
+
+    mup, wa, a, ym = patch
+    muv = muc + (mus - muc) * exp(-sqrt(vr / vs))
+    mup = mup * muv
+
+    sx = -slip / (1 - slip)
+    nx = -1.0 if slip > 0 else 1.0
+    qx = ktx * a * sx;
+
+    # |qx| * (1 - u) = mup / 4 * (1 - u^2) * (4 + u)
+    t = sqrt(4.0 * abs(qx) / mup + 2.25)
+    uc = t - 2.5
+    if uc > 1.0: uc = 1.0
+    ud = uc + 1
+    ue = uc - 1
+    uf = 3 * uc + 5
+
+    ts = 0.5 * wa * (ue * ue)
+    tc = mup * wa * (ud * ud)
+    fc = tc * (7/9.0 - 1/144.0 * (uf * uf))
+    fcx = fc * nx
+    fsx = ts * qx
+    fx = fsx + fcx
+
+    return -fx
+
+def ComputeFy(coeff, patch, slip_angle):
+    vcx = coeff['vcx']
+    kty = coeff['kty']
+    kcb = coeff['kcb'] * 1000
+    cfy = coeff['cfy']
+    mus = coeff['mus']
+    muc = coeff['muc']
+    vs = coeff['vs']
+
+    tsa = tan(slip_angle)
+    vr = vcx * abs(tsa)
+
+    mup, wa, a, ym = patch
+    muv = muc + (mus - muc) * exp(-sqrt(vr / vs))
+    mup = mup * muv
+
+    sy = -tsa
+    ny = -1.0 if tsa > 0 else 1.0
+    qy = kty * a * sy;
+
+    rkb = 1 / kcb
+    rp4 = 4.0 / mup
+    rq4 = 4.0 * rp4 * abs(qy)
+    fy, fyo = 0.0, 0.0
+    for i in range(4):
+        fy = 0.5 *(fy + fyo)
+        fyo = fy
+        
+        yb = fy * rkb + ym
+        qb = kty * yb
+
+        # qy - qb * (1 + u) = mup / 4 * (1 + u) * (4 + u)
+        t0 = rp4 * abs(qb)
+        t1 = t0 + 3
+        t2 = sqrt(t1 * t1 + rq4)
+        uc = 0.5 * (t2 - t0 - 5)
+        if uc > 1.0: uc = 1.0
+        ud = uc + 1
+        ue = uc - 1
+        uf = 3 * uc + 5
+
+        ts = 0.5 * wa * (ue * ue)
+        tb = 1/3.0 * wa * ((uc * uc - 3) * uc + 2)
+        tc = mup * wa * (ud * ud)
+        fc = tc * (7/9.0 - 1/144.0 * (uf * uf))
+        fcy = fc * ny
+        fsy = ts * qy - tb * qb
+        fy = fsy + fcy
+
+    msz = 1/6.0 * ts * a * (qy * (4 * uc + 2) - (3 * qb) * (ud * ud))
+    mcz = -1/60.0 * tc * a * ny * (((3 * uc + 9) * uc - 26) * uc + 13)
+    mz = msz + mcz
+    
+    return fy * cfy, mz
+
+
+def friction(coeff, patch, slip, slip_angle):
+    vcx = coeff['vcx']
+    ktx = coeff['ktx']
+    kty = coeff['kty']
+    kcb = coeff['kcb'] * 1000
+    cfy = coeff['cfy']
+    mus = coeff['mus']
+    muc = coeff['muc']
+    vs = coeff['vs']
+
+    mup, wa, a, ym = patch
+
+    # vcx > 0
+    vcy = vcx * tan(slip_angle)
+    vc = vcx / cos(slip_angle)
+    rw = vcx * (1 - slip)
+
+    vrx = vcx - rw
+    vry = vcy
+    vr = sqrt(vrx * vrx + vry * vry)
+
+    sx = -vrx / rw
+    sy = -vry / rw
+    
+    nx, ny = 0.0, 0.0
+    if vr > 0:
+        nx = -vrx / vr
+        ny = -vry / vr
+
+    # friction coeff
+    muv = muc + (mus - muc) * exp(-sqrt(vr / vs))
+    mup = mup * muv
 
     # carcass bending: ycb = yb + ym
     #                  yb = fy / kcb * (1 - u^2)
@@ -199,17 +303,18 @@ def friction(coeff, vcx, slip, slip_angle, fz):
     # shear limit:  |q(x)| = mu * p(x)
     qx = ktx * sx * a
     qy = kty * sy * a
-    ym = ccb * dz * sin(camber)
+
     fy, fyo = 0.0, 0.0
     for i in range(4):
         fy = 0.5 * (fy + fyo)
         fyo = fy
+        
         yb = fy / kcb
         ycb = yb + ym
         qcb = kty * ycb
 
         # (qy - qcb * (1 + u))^2 + qx^2 = (mu * p)^2 * (1 + u)^2 * (1 + u / 4)^2
-        c4 = (mu * p / 4.0)**2
+        c4 = (mup / 4.0)**2
         c3, c2, c1, c0 = 6 * c4, 9 * c4 - qcb**2, 2 * qy * qcb, -(qx**2 + qy**2)
         d3, d2, d1, d0 = 4 * c4, 3 * c3, 2 * c2, c1
         def f(x): return x * (x * (x * (x * c4 + c3) + c2) + c1) + c0
@@ -236,7 +341,7 @@ def friction(coeff, vcx, slip, slip_angle, fz):
         # fc = integrate w * mu * p(x) from -a to xc
         ts = wa * 0.5 * (1 - uc)**2
         tb = wa / 3.0 * kty * ((uc * uc - 3) * uc + 2)
-        tc = mu * p * wa * (1 + uc)**2
+        tc = mup * wa * (1 + uc)**2
         fc = tc * (7 / 9.0 - (5 + 3 * uc)**2 / 12.0**2)
         fcy = fc * ny
         fy = (ts * qy - tb * ym + fcy) / (1 + tb / kcb)
@@ -750,18 +855,17 @@ class App:
 
     def sampleData(self, coeff):
         fz = self.coeff['fz']
-        camber = self.coeff['camber'] / 180.0 * pi
         slip_angle = self.coeff['slip angle'] / 180.0 * pi
-        vcx = self.coeff['vcx']
         samples = self.samples
         samples2 = self.samples / 2
         # force, torque curves
         afx, afy, amz = [], [], []
+        patch = ComputePatch(coeff, fz)
         for i in range(1, samples - 1, 1):
             s = self.slip_scale * (i - samples2)
             a = self.slip_angle_scale * (i - samples2)
-            fx, _, _ = friction(coeff, vcx, s, 0, fz)
-            _, fy, mz = friction(coeff, vcx, 0, a, fz)
+            fx = ComputeFx(coeff, patch, s)
+            fy, mz = ComputeFy(coeff, patch, a)
             afx.append((i, samples2 * (1 - 0.5 * fx / fz)))
             afy.append((i, samples2 * (1 + 0.5 * fy / fz)))
             amz.append((i, samples2 * (1 +  10 * mz / fz)))
@@ -769,14 +873,14 @@ class App:
         atcp = []
         for i in range(1, samples - 1, 1):
             s = self.slip_scale * (i - samples2)
-            fcx, fcy, mz = friction(coeff, vcx, s, slip_angle, fz)
-            atcp.append((samples2 * (1 - 0.5 * fcx / fz), samples2 * (1 - 0.5 * fcy / fz)))
+            fx, fy, mz = friction(coeff, patch, s, slip_angle)
+            atcp.append((samples2 * (1 - 0.5 * fx / fz), samples2 * (1 - 0.5 * fy / fz)))
         atcn = []
         for i in range(1, samples - 1, 1):
             s = self.slip_scale * (i - samples2)
-            fcx, fcy, mz = friction(coeff, vcx, s, -slip_angle, fz)
-            atcn.append((samples2 * (1 - 0.5 * fcx / fz), samples2 * (1 - 0.5 * fcy / fz)))
-        return afx, afy, amz, atcp, atcn        
+            fx, fy, mz = friction(coeff, patch, s, -slip_angle)
+            atcn.append((samples2 * (1 - 0.5 * fx / fz), samples2 * (1 - 0.5 * fy / fz)))
+        return afx, afy, amz, atcp, atcn
         
     def updateCanvas(self):
         # clear canvas
