@@ -24,8 +24,10 @@ coeff = [
 'kcb',
 'ccb',
 'cfy',
-'cfz',
-'fz0',
+#'cfz',
+#'fz0',
+'dz0',
+'p0',
 'mus',
 'muc',
 'vs'
@@ -45,8 +47,10 @@ coeff_min = {
 'kcb':1000,
 'ccb':0.0,
 'cfy':0.5,
-'cfz':-0.5,
-'fz0':500,
+#'cfz':-0.5,
+#'fz0':500,
+'dz0':0.001,
+'p0':1.0,
 'mus':0.5,
 'muc':0.1,
 'vs':1.0
@@ -66,8 +70,10 @@ coeff_max = {
 'kcb':5000,
 'ccb':1.0,
 'cfy':1.0,
-'cfz':0.0,
-'fz0':5500,
+#'cfz':0.0,
+#'fz0':5500,
+'dz0':0.021,
+'p0':3.0,
 'mus':4.0,
 'muc':2.0,
 'vs':9.0
@@ -87,8 +93,10 @@ coeff_default = {
 'kcb':1500,
 'ccb':0.5,
 'cfy':1.0,
-'cfz':-0.2,
-'fz0':4000,
+#'cfz':-0.2,
+#'fz0':4000,
+'dz0':0.01,
+'p0':2.0,
 'mus':1.5,
 'muc':0.8,
 'vs':4.0
@@ -108,8 +116,10 @@ coeff_info = {
 'kcb':'Carcass bending stiffness [N/mm]',
 'ccb':'Carcass bending due to camber coefficient',
 'cfy':'Lateral force correction factor',
-'cfz':'Friction coefficient scaling with tire load',
-'fz0':'Tire load at which friction coeff scaling is 1 [N]',
+#'cfz':'Friction coefficient scaling with tire load',
+#'fz0':'Tire load at which friction coeff scaling is 1 [N]',
+'dz0':'Displacement at which full width contact is achieved [m]',
+'p0':'Contact pressure at which friction coeff scaling is 1 [bar]',
 'mus':'Static friction coefficient',
 'muc':'Sliding friction coefficient',
 'vs':'Stribeck friction velocity [m/s]'
@@ -128,15 +138,16 @@ def friction(coeff, vcx, slip, slip_angle, fz):
     kcb = coeff['kcb'] * 1000
     ccb = coeff['ccb']
     cfy = coeff['cfy']
-    cfz = coeff['cfz']
-    fz0 = coeff['fz0']
+    #cfz = coeff['cfz']
+    #fz0 = coeff['fz0']
+    dz0 = coeff['dz0']
+    p0 = coeff['p0']
     mus = coeff['mus']
     muc = coeff['muc']
     vs = coeff['vs']
 
     # vcx > 0
     vcy = vcx * tan(slip_angle)
-    vc = vcx / cos(slip_angle)
     rw = vcx * (1 - slip)
 
     vrx = vcx - rw
@@ -158,6 +169,11 @@ def friction(coeff, vcx, slip, slip_angle, fz):
     # vertical deflection
     dz = fz / kz
     
+    # patch width
+    if dz < dz0:
+        sz = 1 - dz / dz0
+        w = w * sqrt(1 - sz * sz)
+    
     # patch half length
     #a = sqrt(r**2 - (r - dz)**2)
     a = 0.30 * (dz + 2.25 * sqrt(r * dz))
@@ -170,7 +186,8 @@ def friction(coeff, vcx, slip, slip_angle, fz):
 
     # friction coeff
     mu = (muc + (mus - muc) * exp(-sqrt(vr / vs)))
-    mu = mu * (1 + cfz * (fz - fz0) / fz0) #(p / 1.25)**(-0.2)
+    #mu = mu * (1 + cfz * (fz - fz0) / fz0)
+    mu = mu * (p / p0)**(-1/3.0)
 
     # carcass bending: ycb = yb + ym
     #                  yb = fy / kcb * (1 - u^2)
@@ -183,8 +200,10 @@ def friction(coeff, vcx, slip, slip_angle, fz):
     qx = ktx * sx * a
     qy = kty * sy * a
     ym = ccb * dz * sin(camber)
-    fy = 0
-    for i in range(2):
+    fy, fyo = 0.0, 0.0
+    for i in range(4):
+        fy = 0.5 * (fy + fyo)
+        fyo = fy
         yb = fy / kcb
         ycb = yb + ym
         qcb = kty * ycb
@@ -214,21 +233,20 @@ def friction(coeff, vcx, slip, slip_angle, fz):
             uc = -1
         
         # fs = integrate w * q(x) from xc to a
-        ts = wa * 0.5 * (1 - uc)**2
-        tb = wa / 3.0 * ((uc * uc - 3) * uc + 2)
-        fsx = ts * qx
-        fsy = ts * qy - tb * qcb
-        
         # fc = integrate w * mu * p(x) from -a to xc
+        ts = wa * 0.5 * (1 - uc)**2
+        tb = wa / 3.0 * kty * ((uc * uc - 3) * uc + 2)
         tc = mu * p * wa * (1 + uc)**2
         fc = tc * (7 / 9.0 - (5 + 3 * uc)**2 / 12.0**2)
-        fcx = fc * nx
         fcy = fc * ny
+        fy = (ts * qy - tb * ym + fcy) / (1 + tb / kcb)
 
-        fx = fsx + fcx
-        fy = fsy + fcy
-        fy = cfy * fy
-        
+    fy = cfy * fy
+
+    fcx = fc * nx
+    fsx = ts * qx
+    fx = fsx + fcx
+
     # msz = integrate w * (x * qy(x) - ycb(x) * qx(x)) from xc to a
     msz = (ts * a * (qy * (2 + 4 * uc) - 3 * qcb * (1 + uc)**2)
            - fsx * ycb * (1 - uc) * (5 + 3 * uc)) / 6.0
