@@ -169,6 +169,28 @@ def ComputePatch(coeff, fz):
 
     return mu * p, w * a * 1E5, a, ym
 
+def ComputeSlipPoint(qx, qy, qb, qp):
+    c4 = 1/16.0 * qp * qp
+    c3, c2, c1, c0 = 6 * c4, 9 * c4 - qb * qb, 2 * qy * qb, -(qx * qx + qy * qy)
+    d3, d2, d1, d0 = 4 * c4, 3 * c3, 2 * c2, c1
+    def f(x): return x * (x * (x * (x * c4 + c3) + c2) + c1) + c0
+    def d(x): return x * (x * (x * d3 + d2) + d1) + d0
+    if qx * qx + (qy - qb)**2 > 0: 
+        f2 = f(2)
+        f1 = f(1)
+        if f1 > 0:
+            uc = 1 - f1 / d(1)
+            for i in range(3):
+                uc = uc - f(uc) / d(uc)
+            return uc - 1
+        if f2 * f1 < 0:
+            uc = 2 - f2 / d(2)
+            for i in range(3):
+                uc = uc - f(uc) / d(uc)
+            return uc - 1
+        return 1
+    return -1
+
 def ComputeFx(coeff, patch, slip):
     vcx = coeff['vcx']
     ktx = coeff['ktx']
@@ -314,28 +336,7 @@ def friction(coeff, patch, slip, slip_angle):
         qcb = kty * ycb
 
         # (qy - qcb * (1 + u))^2 + qx^2 = (mu * p)^2 * (1 + u)^2 * (1 + u / 4)^2
-        c4 = (mup / 4.0)**2
-        c3, c2, c1, c0 = 6 * c4, 9 * c4 - qcb**2, 2 * qy * qcb, -(qx**2 + qy**2)
-        d3, d2, d1, d0 = 4 * c4, 3 * c3, 2 * c2, c1
-        def f(x): return x * (x * (x * (x * c4 + c3) + c2) + c1) + c0
-        def d(x): return x * (x * (x * d3 + d2) + d1) + d0
-        if qx**2 + (qy - qcb)**2 > 0: 
-            f2 = f(2)
-            f1 = f(1)
-            if f1 > 0:
-                uc = 1 - f1 / d(1)
-                for i in range(3):
-                    uc = uc - f(uc) / d(uc)
-                uc = uc - 1
-            elif f2 * f1 < 0:
-                uc = 2 - f2 / d(2)
-                for i in range(3):
-                    uc = uc - f(uc) / d(uc)
-                uc = uc - 1
-            else:
-                uc = 1
-        else:
-            uc = -1
+        uc = ComputeSlipPoint(qx, qy, qcb, mup)
         
         # fs = integrate w * q(x) from xc to a
         # fc = integrate w * mu * p(x) from -a to xc
