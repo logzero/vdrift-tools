@@ -15,10 +15,10 @@ coeff_base = [
 ]
 
 coeff = [
-'pressure',
 'radius',
 'width',
 'ar',
+'pt',
 'ktx',
 'kty',
 'kcb',
@@ -38,10 +38,10 @@ coeff_min = {
 'camber':-9.0,
 'slip angle':2.0,
 'vcx':5.0,
-'pressure':0.5,
 'radius':0.1,
 'width':0.1,
 'ar':0.25,
+'pt':0.5,
 'ktx':500,
 'kty':500,
 'kcb':1000,
@@ -61,10 +61,10 @@ coeff_max = {
 'camber':9.0,
 'slip angle':30.0,
 'vcx':60.0,
-'pressure':3.5,
 'radius':1.0,
 'width':0.5,
 'ar':1.0,
+'pt':3.5,
 'ktx':1200,
 'kty':1200,
 'kcb':5000,
@@ -84,10 +84,10 @@ coeff_default = {
 'camber':0.0,
 'slip angle':8.0,
 'vcx':15.0,
-'pressure':2.0,
 'radius':0.28,
 'width':0.2,
 'ar':0.45,
+'pt':2.0,
 'ktx':700,
 'kty':700,
 'kcb':1500,
@@ -107,10 +107,10 @@ coeff_info = {
 'camber':'Current camber [deg]',
 'slip angle':'Current angle of slip [deg]',
 'vcx':'Longitudinal wheel center velocity [m/s]',
-'pressure':'Tire inflation pressure [bar]',
 'radius':'Tire radius [m]',
 'width':'Tire width [m]',
 'ar':'Tire aspect ratio',
+'pt':'Tire inflation pressure [bar]',
 'ktx':'Longitudinal tread stiffness [GPa/m]',
 'kty':'Lateral tread stiffness [GPa/m]',
 'kcb':'Carcass bending stiffness [N/mm]',
@@ -128,10 +128,10 @@ coeff_info = {
 #log = open("log.txt", 'w')
 
 def ComputePatch(coeff, fz):
-    pt = coeff['pressure']
     r = coeff['radius']
     w = coeff['width']
     ar = coeff['ar']
+    pt = coeff['pt']
     camber = coeff['camber'] * pi / 180
     ccb = coeff['ccb']
     #cfz = coeff['cfz']
