@@ -127,12 +127,11 @@ coeff_info = {
 
 #log = open("log.txt", 'w')
 
-def ComputePatch(coeff, fz):
+def ComputePatch(coeff, fz, camber):
     r = coeff['radius']
     w = coeff['width']
     ar = coeff['ar']
     pt = coeff['pt']
-    camber = -coeff['camber'] * pi / 180.0
     ccb = coeff['ccb']
     #cfz = coeff['cfz']
     #fz0 = coeff['fz0']
@@ -865,11 +864,12 @@ class App:
         scalef = 0.5 * scale
         slip_angle_scale = 2.0 * slip_angle_max / self.samples
         slip_scale = 2.0 * self.slip_max / self.samples
+        camber = -self.coeff['camber'] / 180.0 * pi
         sa = self.coeff['slip angle'] / 180.0 * pi
         fz = self.coeff['fz']
         # force, torque curves
         afx, afy, amz = [], [], []
-        patch = ComputePatch(coeff, fz)
+        patch = ComputePatch(coeff, fz, camber)
         for i in range(-self.samples // 2, self.samples // 2, 1):
             s = i * slip_scale
             a = i * slip_angle_scale
