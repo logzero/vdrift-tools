@@ -747,7 +747,7 @@ class App:
         self.file_opt = {
             'defaultextension':'.tirep',
             'filetypes':[('tire files', '.tirep'), ('all files', '.*')],
-            'initialdir':'C:\\',
+            'initialdir':'.',
             'initialfile':'touring.tirep',
             'parent':root,
             'title':'Select tire config file',
@@ -755,7 +755,7 @@ class App:
         self.file_opt0 = {
             'defaultextension':'.tiren',
             'filetypes':[('tire files', '.tiren'), ('all files', '.*')],
-            'initialdir':'C:\\',
+            'initialdir':'.',
             'initialfile':'touring.tiren',
             'parent':root,
             'title':'Select tire config file',
