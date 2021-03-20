@@ -435,8 +435,10 @@ def PacejkaFx0(p, sigma, Fz):
     # composite
     S = 100 * sigma + Sh
 
+    BS = B * S
+
     # longitudinal force
-    return D * SinPi(C * Atan(B * S - E * (B * S - Atan(B * S))))
+    return D * SinPi(C * Atan(BS - E * (BS - Atan(BS))))
 
 
 # Lateral force
@@ -477,8 +479,10 @@ def PacejkaFy0(p, alpha, gamma, Fz):
     # composite
     S = alpha + Sh
 
+    BS = B * S
+
     # lateral force
-    return D * SinPi(C * Atan(B * S - E * (B * S - Atan(B * S)))) + Sv
+    return D * SinPi(C * Atan(BS - E * (BS - Atan(BS)))) + Sv
 
 
 # Aligning moment
@@ -519,8 +523,10 @@ def PacejkaMz0(p, alpha, gamma, Fz):
     # composite
     S = alpha + Sh
 
+    BS = B * S
+
     # self-aligning torque
-    return D * SinPi(C * Atan(B * S - E * (B * S - Atan(B * S)))) + Sv
+    return D * SinPi(C * Atan(BS - E * (BS - Atan(BS)))) + Sv
 
 
 def Pacejka0(p, sigma, alpha, gamma, Fz):

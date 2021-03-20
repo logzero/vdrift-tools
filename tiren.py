@@ -420,8 +420,10 @@ def PacejkaFx(p, sigma, Fz, dFz):
     # stiffness factor
     B =  K / (C * D)
 
+    BS = B * S
+
     # force
-    return D * sin(C * atan(B * S - E * (B * S - atan(B * S)))) + Sv
+    return D * sin(C * atan(BS - E * (BS - atan(BS)))) + Sv
 
 
 def PacejkaFy(p, alpha, gamma, Fz, dFz):
@@ -451,8 +453,10 @@ def PacejkaFy(p, alpha, gamma, Fz, dFz):
     # stiffness factor
     B = K / (C * D)
 
+    BA = B * A
+
     # force
-    Fy = D * sin(C * atan(B * A - E * (B * A - atan(B * A)))) + Sv
+    Fy = D * sin(C * atan(BA - E * (BA - atan(BA)))) + Sv
 
     Dy = D
     BCy = B * C
@@ -473,13 +477,15 @@ def PacejkaMz(p, alpha, gamma, Fz, dFz, Fy, BCy, Shf):
 
     Bt = (p['QBZ1'] + p['QBZ2'] * dFz + p['QBZ3'] * dFz * dFz) * (1 + p['QBZ4'] * yz + p['QBZ5'] * abs(yz))
 
+    BAt = Bt * At
+
     Ct = p['QCZ1']
 
     Dt = Fz * (p['QDZ1'] + p['QDZ2'] * dFz) * (1 + p['QDZ3'] * yz + p['QDZ4'] * yz * yz) * (R0 / Fz0)
 
-    Et = (p['QEZ1'] + p['QEZ2'] * dFz + p['QEZ3'] * dFz * dFz) * (1 + (p['QEZ4'] + p['QEZ5'] * yz) * atan(Bt * Ct * At))
+    Et = (p['QEZ1'] + p['QEZ2'] * dFz + p['QEZ3'] * dFz * dFz) * (1 + (p['QEZ4'] + p['QEZ5'] * yz) * atan(Ct * BAt))
 
-    Mzt = -Fy * Dt * cos(Ct * atan(Bt * At - Et * (Bt * At - atan(Bt * At)))) * cosa
+    Mzt = -Fy * Dt * cos(Ct * atan(BAt - Et * (BAt - atan(BAt)))) * cosa
 
     Ar = alpha + Shf
 
