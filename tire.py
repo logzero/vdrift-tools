@@ -294,8 +294,14 @@ def CosAtan(x):
     return 1 / sqrt(1 + x * x)
 
 
-# Longitudinal force 
-def PacejkaFx(p, sigma, Fz):
+def Pacejka(P, S):
+    B, C, D, E, Sh, Sv = P
+    BS = B * (S + Sh)
+    return D * SinPi(C * Atan(BS - E * (BS - Atan(BS)))) + Sv
+
+
+# Longitudinal force
+def PacejkaFx(p, Fz):
     # shape factor
     C = p['b0']
 
@@ -317,20 +323,16 @@ def PacejkaFx(p, sigma, Fz):
     # horizontal shift
     Sh = p['b9'] * Fz + p['b10']
 
+    Sv = 0.0
+
     # vertical shift 1993
     #Sv = p['b11'] * Fz + p['b12']
 
-    # composite
-    S = 100 * sigma + Sh
-    
-    BS = B * S
-
-    # longitudinal force
-    return D * SinPi(C * Atan(BS - E * (BS - Atan(BS))))
+    return B, C, D, E, Sh, Sv
 
 
 # Lateral force
-def PacejkaFy(p, alpha, gamma, Fz):
+def PacejkaFy(p, gamma, Fz):
     # shape factor
     C = p['a0']
 
@@ -364,17 +366,11 @@ def PacejkaFy(p, alpha, gamma, Fz):
     # vertical shift 1993
     # Sv = p['a111'] * Fz + p['a112'] + (p['a12'] * Fz * Fz + p['a13'] * Fz) * gamma
 
-    # composite
-    S = alpha + Sh
-    
-    BS = B * S
-
-    # lateral force
-    return D * SinPi(C * Atan(BS - E * (BS - Atan(BS)))) + Sv
+    return B, C, D, E, Sh, Sv
 
 
 # Aligning moment
-def PacejkaMz(p, alpha, gamma, Fz):
+def PacejkaMz(p, gamma, Fz):
     # shape factor
     C = p['c0']
 
@@ -408,20 +404,7 @@ def PacejkaMz(p, alpha, gamma, Fz):
     # vertical shift 1993
     # Sv = p['c14'] * Fz + p['c15'] + (p['c16'] * Fz * Fz + p['c17'] * Fz) * gamma
 
-    # composite
-    S = alpha + Sh
-
-    BS = B * S
-
-    # self-aligning torque
-    return D * SinPi(C * Atan(BS - E * (BS - Atan(BS)))) + Sv
-
-
-def Pacejka(p, sigma, alpha, gamma, Fz):
-    Fx = PacejkaFx(p, sigma, Fz)
-    Fy = PacejkaFy(p, alpha, gamma, Fz)
-    Mz = PacejkaMz(p, alpha, gamma, Fz)
-    return Fx, Fy, Mz
+    return B, C, D, E, Sh, Sv
 
 
 # Longitudinal force combining factor, alpha in rad
@@ -787,23 +770,27 @@ class App:
         camber = self.coeff['Camber']
         sa = self.coeff['aos'] / 180.0 * pi
         fz = self.coeff['Fz']
-        fyp = PacejkaFy(coeff, sa / pi * 180.0, camber, fz)
-        fyn = PacejkaFy(coeff, -sa / pi * 180.0, camber, fz)
+        rfz = 1 / fz
+        px = PacejkaFx(coeff, fz)
+        py = PacejkaFy(coeff, camber, fz)
+        pz = PacejkaMz(coeff, camber, fz)
+        fyp = Pacejka(py, sa / pi * 180.0)
+        fyn = Pacejka(py, -sa / pi * 180.0)
         afx, afy, amz, acp, acn = [], [], [], [], []
         for i in range(-self.samples // 2, self.samples // 2, 1):
             s = i * slip_scale
             a = i * slip_angle_scale
-            fx = PacejkaFx(coeff, s, fz)
-            fy = PacejkaFy(coeff, a, camber, fz)
-            mz = PacejkaMz(coeff, a, camber, fz)
+            fx = Pacejka(px, s * 100)
+            fy = Pacejka(py, a)
+            mz = Pacejka(pz, a)
             gx = PacejkaGx(coeff, s, sa)
             gy = PacejkaGy(coeff, s, sa)
-            mux = gx * 0.001 * fx / fz
-            muyp = gy * 0.001 * fyp / fz
-            muyn = gy * 0.001 * fyn / fz
-            afx.append((scale + s * scales, (2 - 0.001 * fx / fz) * scalef))
-            afy.append((scale + a * scalea, (2 - 0.001 * fy / fz) * scalef))
-            amz.append((scale + a * scalea, (2 - 0.01 * mz / fz) * scalef))
+            mux = gx * 0.001 * fx * rfz
+            muyp = gy * 0.001 * fyp * rfz
+            muyn = gy * 0.001 * fyn * rfz
+            afx.append((scale + s * scales, (2 - 0.001 * fx * rfz) * scalef))
+            afy.append((scale + a * scalea, (2 - 0.001 * fy * rfz) * scalef))
+            amz.append((scale + a * scalea, (2 - 0.01 * mz * rfz) * scalef))
             acp.append(((2 - mux) * scalef, (2 - muyp) * scalef))
             acn.append(((2 - mux) * scalef, (2 - muyn) * scalef))
         return afx, afy, amz, acp, acn
