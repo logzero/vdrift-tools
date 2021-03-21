@@ -703,29 +703,45 @@ class TabBar(Frame):
 
 # custom slider class
 class Slider(Frame):
-    def __init__(self, parent, text, v, vmin, vmax, call):
+    def __init__(self, parent, id, v, vmin, vmax, call):
         Frame.__init__(self, parent)
         self.call = call
-        self.v = StringVar()
-        self.tl = Label(self, text=text)
+        self.id = id
+        self.vmin = vmin
+        self.vmax = vmax
+        self.dv = DoubleVar()
+        self.sv = StringVar()
+        self.sv.trace('w', lambda name, idx, mode, var=self.sv: self.validate(var))
+        self.tl = Label(self, text=id)
         self.tl.pack(side=LEFT, anchor=S)
         self.s = Scale(self, from_=vmin, to=vmax, resolution=(vmax-vmin)/10000.0,
-                           length=160, orient="horizontal", showvalue=0, command=self.command)
+            length=160, orient="horizontal", showvalue=0,
+            variable=self.dv, command=self.command)
         self.s.pack(side=RIGHT, anchor=S)
-        self.vl = Label(self, textvariable=self.v)
-        self.vl.pack(side=RIGHT, anchor=S)
+        vl = Entry(self, width=8, textvariable=self.sv)
+        vl.pack(side=RIGHT, anchor=S)
         self.set(v)
 
-    def command(self, event):
-        self.v.set(str(event))
-        self.call(event)
+    def set(self, val):
+        self.dv.set(val)
+        self.sv.set(str(val))
+        self.call(self.id, val)
 
-    def get(self):
-        return self.s.get()
+    def validate(self, val):
+        vn = val.get()
+        #print("validate", self.id, vn)
+        try:
+            vn = float(vn)
+            if (vn >= self.vmin and vn <= self.vmax):
+                self.dv.set(vn)
+                self.call(self.id, vn)
+        except:
+            return
 
-    def set(self, v):
-        self.v.set(str(v))
-        self.s.set(v)
+    def command(self, val):
+        #print("command", self.id, val)
+        self.sv.set(val)
+        self.call(self.id, float(val))
 
 
 def addSlider(parent, txt, val, vmin, vmax, vinfo, call):
@@ -790,8 +806,6 @@ class App:
             s = addSlider(sframe, n, self.coeff[n], coeff_min[n], coeff_max[n], coeff_info[n], self.update)
             self.sliders[n] = s
 
-        self.update('')
-
     def loadref(self):
         f = filedialog.askopenfile(mode='r', **self.file_opt0)
         if not f: return
@@ -819,7 +833,6 @@ class App:
             if not line.startswith('#'):
                 name, value = line.split('=')
                 name, value = name.strip(), value.strip()
-                self.coeff[name] = float(value)
                 self.sliders[name].set(float(value))
         self.updateCanvas()
 
@@ -921,13 +934,12 @@ class App:
         self.canvas.create_line(tcn, width=1, fill="black")
         self.need_redraw = False
 
-    def update(self, event):
-        need_redraw = False
-        for n, s in self.sliders.items():
-            need_redraw = need_redraw | (self.coeff[n] != s.get())
-            self.coeff[n] = s.get()
-        if not self.need_redraw and need_redraw:
-            self.need_redraw = need_redraw
+    def update(self, id, val):
+        #print("update", id, val)
+        self.coeff[id] = val
+        if not self.need_redraw:
+            #print("redraw")
+            self.need_redraw = True
             self.canvas.after_idle(self.updateCanvas)
 
     def resize(event):
