@@ -291,7 +291,10 @@ def SinPi(x):
     return SinPi2(x)
 
 def CosAtan(x):
-    return 1 / sqrt(1 + x * x)
+    return 1 / sqrt(x * x + 1)
+
+def Sin2Atan(x, y):
+    return 2 * x * y / (x * x + y * y)
 
 
 def Pacejka(P, S):
@@ -343,7 +346,7 @@ def PacejkaFy(p, gamma, Fz):
     # D = D * (1 - p['a14'] * gamma * gamma)
 
     # slope at origin
-    BCD = p['a3'] * SinPi(2 * Atan(Fz / p['a4'])) * (1 - p['a5'] * fabs(gamma))
+    BCD = p['a3'] * Sin2Atan(Fz, p['a4']) * (1 - p['a5'] * fabs(gamma))
 
     # stiffness factor
     B = BCD / (C * D)
@@ -467,7 +470,7 @@ def PacejkaFy0(p, alpha, gamma, Fz, dFz):
     A = alpha + Sh;
 
     # slope at origin
-    K = p['PKY1'] * Fz0 * sin(2 * atan(Fz / (p['PKY2'] * Fz0))) * (1 - p['PKY3'] * abs(gamma))
+    K = p['PKY1'] * Fz0 * Sin2Atan(Fz, p['PKY2'] * Fz0) * (1 - p['PKY3'] * abs(gamma))
 
     # curvature factor
     E = (p['PEY1'] + p['PEY2'] * dFz) * (1 - (p['PEY3'] + p['PEY4'] * gamma) * copysign(1, A))
@@ -521,14 +524,14 @@ def PacejkaMz0(p, alpha, gamma, Fz, dFz, Fy, BCy, Shf):
 
     Dr = Fz * (p['QDZ6'] + p['QDZ7'] * dFz + (p['QDZ8'] + p['QDZ9'] * dFz) * yz) * R0
 
-    Mzr = Dr * cos(atan(Br * Ar)) * cosa
+    Mzr = Dr * CosAtan(Br * Ar) * cosa
 
     return Mzt + Mzr
 
 
 def PacejkaGx0(p, sigma, alpha):
-    # cos(atan(x)) = 1 / sqrt(1 + x * x)
-    B = p['RBX1'] * cos(atan(p['RBX2'] * sigma))
+    # CosAtan(x)) = 1 / sqrt(1 + x * x)
+    B = p['RBX1'] * CosAtan(p['RBX2'] * sigma)
     C = p['RCX1']
     Sh = p['RHX1']
     S = alpha + Sh
@@ -538,7 +541,7 @@ def PacejkaGx0(p, sigma, alpha):
 
 
 def PacejkaGy0(p, sigma, alpha):
-    B = p['RBY1'] * cos(atan(p['RBY2'] * (alpha - p['RBY3'])))
+    B = p['RBY1'] * CosAtan(p['RBY2'] * (alpha - p['RBY3']))
     C = p['RCY1']
     Sh = p['RHY1']
     S = sigma + Sh
@@ -548,7 +551,7 @@ def PacejkaGy0(p, sigma, alpha):
 
 
 def PacejkaSvy0(p, sigma, alpha, gamma, dFz, Dy):
-    Dv = Dy * (p['RVY1'] + p['RVY2'] * dFz + p['RVY3'] * gamma) * cos(atan(p['RVY4'] * alpha))
+    Dv = Dy * (p['RVY1'] + p['RVY2'] * dFz + p['RVY3'] * gamma) * CosAtan(p['RVY4'] * alpha)
     Sv = Dv * sin(p['RVY5'] * atan(p['RVY6'] * sigma))
     return Sv
 

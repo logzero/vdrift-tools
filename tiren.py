@@ -392,6 +392,11 @@ coeff_info = {
 'RHX1':'Shift factor of Fx reduction for combined slip',
 }
 
+def CosAtan(x):
+    return 1 / sqrt(x * x + 1)
+
+def Sin2Atan(x, y):
+    return 2 * x * y / (x * x + y * y)
 
 def PacejkaFx(p, sigma, Fz, dFz):
     Fz0 = p['FZ0']
@@ -439,7 +444,7 @@ def PacejkaFy(p, alpha, gamma, Fz, dFz):
     A = alpha + Sh;
 
     # slope at origin
-    K = p['PKY1'] * Fz0 * sin(2 * atan(Fz / (p['PKY2'] * Fz0))) * (1 - p['PKY3'] * abs(gamma))
+    K = p['PKY1'] * Fz0 * Sin2Atan(Fz, p['PKY2'] * Fz0) * (1 - p['PKY3'] * abs(gamma))
 
     # curvature factor
     E = (p['PEY1'] + p['PEY2'] * dFz) * (1 - (p['PEY3'] + p['PEY4'] * gamma) * copysign(1, A))
@@ -493,13 +498,13 @@ def PacejkaMz(p, alpha, gamma, Fz, dFz, Fy, BCy, Shf):
 
     Dr = Fz * (p['QDZ6'] + p['QDZ7'] * dFz + (p['QDZ8'] + p['QDZ9'] * dFz) * yz) * R0
 
-    Mzr = Dr * cos(atan(Br * Ar)) * cosa
+    Mzr = Dr * CosAtan(Br * Ar) * cosa
 
     return Mzt + Mzr
 
 
 def PacejkaGx(p, sigma, alpha):
-    B = p['RBX1'] * cos(atan(p['RBX2'] * sigma))
+    B = p['RBX1'] * CosAtan(p['RBX2'] * sigma)
     C = p['RCX1']
     Sh = p['RHX1']
     S = alpha + Sh
@@ -509,7 +514,7 @@ def PacejkaGx(p, sigma, alpha):
 
 
 def PacejkaGy(p, sigma, alpha):
-    B = p['RBY1'] * cos(atan(p['RBY2'] * (alpha - p['RBY3'])))
+    B = p['RBY1'] * CosAtan(p['RBY2'] * (alpha - p['RBY3']))
     C = p['RCY1']
     Sh = p['RHY1']
     S = sigma + Sh
@@ -519,7 +524,7 @@ def PacejkaGy(p, sigma, alpha):
 
 
 def PacejkaSvy(p, sigma, alpha, gamma, dFz, Dy):
-    Dv = Dy * (p['RVY1'] + p['RVY2'] * dFz + p['RVY3'] * gamma) * cos(atan(p['RVY4'] * alpha))
+    Dv = Dy * (p['RVY1'] + p['RVY2'] * dFz + p['RVY3'] * gamma) * CosAtan(p['RVY4'] * alpha)
     Sv = Dv * sin(p['RVY5'] * atan(p['RVY6'] * sigma))
     return Sv
 

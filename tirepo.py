@@ -403,7 +403,10 @@ def SinPi(x):
     return SinPi2(x)
 
 def CosAtan(x):
-    return 1 / sqrt(1 + x * x)
+    return 1 / sqrt(x * x + 1)
+
+def Sin2Atan(x, y):
+    return 2 * x * y / (x * x + y * y)
 
 
 def Pacejka0(P, S):
@@ -455,7 +458,7 @@ def PacejkaFy0(p, gamma, Fz):
     # D = D * (1 - p['a14'] * gamma * gamma)
 
     # slope at origin
-    BCD = p['a3'] * SinPi(2 * Atan(Fz / p['a4'])) * (1 - p['a5'] * fabs(gamma))
+    BCD = p['a3'] * Sin2Atan(Fz, p['a4']) * (1 - p['a5'] * fabs(gamma))
 
     # stiffness factor
     B = BCD / (C * D)
