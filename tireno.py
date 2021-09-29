@@ -596,9 +596,6 @@ def SinPi(x):
         x = copysign(pi, x) - x
     return SinPi2(x)
 
-def CosAtan(x):
-    return 1 / sqrt(1 + x * x)
-
 
 def Pacejka0(P, S):
     B, C, D, E, Sh, Sv = P
@@ -715,16 +712,18 @@ def PacejkaMz0(p, gamma, Fz):
 
 # Longitudinal force combining factor, alpha in rad
 def PacejkaGx0(p, sigma, alpha):
-    B = p['gx1'] * CosAtan(p['gx2'] * sigma)
-    G = CosAtan(B * alpha)
-    return G
+    a = p['gx2'] * sigma
+    b = p['gx1'] * alpha
+    c = a * a + 1
+    return sqrt(c / (c + b * b))
 
 
 # Lateral force combining factor, alpha in rad
 def PacejkaGy0(p, sigma, alpha):
-    B = p['gy1'] * CosAtan(p['gy2'] * alpha)
-    G = CosAtan(B * sigma)
-    return G
+    a = p['gy2'] * alpha
+    b = p['gy1'] * sigma
+    c = a * a + 1
+    return sqrt(c / (c + b * b))
 
 
 class ToolTip( Toplevel ):

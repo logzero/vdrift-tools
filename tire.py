@@ -412,16 +412,24 @@ def PacejkaMz(p, gamma, Fz):
 
 # Longitudinal force combining factor, alpha in rad
 def PacejkaGx(p, sigma, alpha):
-    B = p['gx1'] * CosAtan(p['gx2'] * sigma)
-    G = CosAtan(B * alpha)
-    return G
+    #B = p['gx1'] * CosAtan(p['gx2'] * sigma)
+    #G = CosAtan(B * alpha)
+    #return G
+    a = p['gx2'] * sigma
+    b = p['gx1'] * alpha
+    c = a * a + 1
+    return sqrt(c / (c + b * b))
 
 
 # Lateral force combining factor, alpha in rad
 def PacejkaGy(p, sigma, alpha):
-    B = p['gy1'] * CosAtan(p['gy2'] * alpha)
-    G = CosAtan(B * sigma)
-    return G
+    #B = p['gy1'] * CosAtan(p['gy2'] * alpha)
+    #G = CosAtan(B * sigma)
+    #return G
+    a = p['gy2'] * alpha
+    b = p['gy1'] * sigma
+    c = a * a + 1
+    return sqrt(c / (c + b * b))
 
 
 class ToolTip( Toplevel ):
